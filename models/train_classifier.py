@@ -26,8 +26,8 @@ def load_data(database_filepath):
     :param database_filepath: database file path
     '''
     # load data from database
-    engine = create_engine('sqlite:///InsertDatabaseName.db')
-    df = pd.read_sql_table('InsertTableName',engine)
+    engine = create_engine('sqlite:///'+database_filepath)
+    df = pd.read_sql_table('disaster_response',engine)
     X = df['message']
     Y = df.drop(columns=['id','message','original','genre'])
     
@@ -57,15 +57,21 @@ def tokenize(text):
 
 class TextLengthExtractor(BaseEstimator, TransformerMixin):
     '''
-    Count the text length of each cell in the X
+    An estimator that can count the text length of each cell in the X
     
     '''
     def fit(self, X, y=None):
-        return self
+    	'''
+    	Return self
+    	'''
+    	return self
 
     def transform(self, X):
-        X_length = pd.Series(X).str.len()
-        return pd.DataFrame(X_length)
+    	'''
+    	Count the text length of each cell in the X
+    	'''
+    	X_length = pd.Series(X).str.len()
+    	return pd.DataFrame(X_length)
 
 
 def build_model():
@@ -110,7 +116,7 @@ def evaluate_model(model, X_test, Y_test, category_names):
     # Use model to predict
     Y_pred = model.predict(X_test)
     # Turn prediction into DataFrame
-    Y_pred = pd.DataFrame(Y_pred,columns=Y_test.columns)
+    Y_pred = pd.DataFrame(Y_pred,columns=category_names)
     # For each category column, print performance
     for col in category_names:
         print(f'Column Name:{col}\n')

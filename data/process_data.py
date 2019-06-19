@@ -11,9 +11,9 @@ def load_data(messages_filepath, categories_filepath):
     :param categories_filepath: file path for categories data
     '''
     # load messages dataset
-    messages = pd.read_csv('messages.csv')
+    messages = pd.read_csv(messages_filepath)
     # load categories dataset
-    categories = pd.read_csv('categories.csv')
+    categories = pd.read_csv(categories_filepath)
     # merge datasets
     df = messages.merge(categories,on=['id'],how='left')
     
@@ -66,9 +66,9 @@ def save_data(df, database_filename):
     :param database_filename: database file name
     '''
     # Create database engine
-    engine = create_engine(database_filename)
+    engine = create_engine('sqlite:///'+database_filename)
     # Save df to database
-    df.to_sql('InsertTableName', engine, index=False)
+    df.to_sql('disaster_response', engine, index=False)
 
 
 def main():
