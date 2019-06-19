@@ -4,33 +4,64 @@ import pandas as pd
 
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
 
 from flask import Flask
 from flask import render_template, request, jsonify
-from plotly.graph_objs import Bar
+from plotly.graph_objs import Bar, Histogram
 from sklearn.externals import joblib
 from sqlalchemy import create_engine
+from sklearn.base import BaseEstimator, TransformerMixin
 
 
 app = Flask(__name__)
 
 def tokenize(text):
+    '''
+    Tokenize, lemmatize, normalize, strip, remove stop words from the text
+    
+    :param text: input text
+    '''
+    # Initialization
     tokens = word_tokenize(text)
     lemmatizer = WordNetLemmatizer()
-
+    stopWords = set(stopwords.words('english'))
+    
+    # Get clean tokens after lemmatization, normalization, stripping and stop words removal
     clean_tokens = []
     for tok in tokens:
         clean_tok = lemmatizer.lemmatize(tok).lower().strip()
-        clean_tokens.append(clean_tok)
+        if tok not in stopWords:
+            clean_tokens.append(clean_tok)
 
     return clean_tokens
 
+
+class TextLengthExtractor(BaseEstimator, TransformerMixin):
+    '''
+    An estimator that can count the text length of each cell in the X
+    
+    '''
+    def fit(self, X, y=None):
+        '''
+        Return self
+        '''
+        return self
+
+    def transform(self, X):
+        '''
+        Count the text length of each cell in the X
+        '''
+        X_length = pd.Series(X).str.len()
+        return pd.DataFrame(X_length)
+
+
 # load data
-engine = create_engine('sqlite:///../data/YourDatabaseName.db')
-df = pd.read_sql_table('YourTableName', engine)
+engine = create_engine('sqlite:///../data/DisasterResponse.db')
+df = pd.read_sql_table('disaster_response', engine)
 
 # load model
-model = joblib.load("../models/your_model_name.pkl")
+model = joblib.load("../models/classifier.pkl")
 
 
 # index webpage displays cool visuals and receives user input text for model
@@ -42,6 +73,9 @@ def index():
     # TODO: Below is an example - modify to extract data for your own visuals
     genre_counts = df.groupby('genre').count()['message']
     genre_names = list(genre_counts.index)
+
+    multiple_labels = df.drop(columns=['id','message','original','genre']).sum(axis=1)
+    positive_labels = df.drop(columns=['id','message','original','genre']).sum()
     
     # create visuals
     # TODO: Below is an example - modify to create your own visuals
@@ -61,6 +95,41 @@ def index():
                 },
                 'xaxis': {
                     'title': "Genre"
+                }
+            }
+        },
+        {
+            'data': [
+                Histogram(
+                    x=multiple_labels
+                )
+            ],
+
+            'layout': {
+                'title': 'Histogram of Multiple Lables Instances',
+                'yaxis': {
+                    'title': "Frequency"
+                },
+                'xaxis': {
+                    'title': "# of Multiple Lables"
+                }
+            }
+        },
+        {
+            'data': [
+                Bar(
+                    x=positive_labels.index,
+                    y=positive_labels
+                )
+            ],
+
+            'layout': {
+                'title': 'Distribution of positive lables',
+                'yaxis': {
+                    'title': "Count"
+                },
+                'xaxis': {
+                    'title': "Output Lables"
                 }
             }
         }
