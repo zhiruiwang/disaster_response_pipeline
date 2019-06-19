@@ -1,16 +1,74 @@
 import sys
-
+import numpy as np
+import pandas as pd
+from sqlalchemy import create_engine
 
 def load_data(messages_filepath, categories_filepath):
-    pass
+    '''
+    Load in messages and categories data, output merged file
+    
+    :param messages_filepath: file path for message data
+    :param categories_filepath: file path for categories data
+    '''
+    # load messages dataset
+    messages = pd.read_csv('messages.csv')
+    # load categories dataset
+    categories = pd.read_csv('categories.csv')
+    # merge datasets
+    df = messages.merge(categories,on=['id'],how='left')
+    
+    return df
 
 
 def clean_data(df):
-    pass
+    '''
+    1. Split categories into separate category columns.
+    2. Convert category values to just numbers 0 or 1.
+    3. Replace categories column in df with new category columns.
+    4. Remove duplicates.
+    
+    :param df: input data
+    '''
+    # create a dataframe of the 36 individual category columns
+    categories = pd.DataFrame(df.categories.str.split(';',expand=True))
+    # select the first row of the categories dataframe
+    row = categories.iloc[0]
+    # use this row to extract a list of new column names for categories.
+    # one way is to apply a lambda function that takes everything 
+    # up to the second to last character of each string with slicing
+    category_colnames = row.str.split('-').apply(lambda x:x[0])
+    # rename the columns of `categories`
+    categories.columns = category_colnames
+    
+    for column in categories:
+        # set each value to be the last character of the string
+        categories[column] = categories[column]\
+            .astype(str).str.split('-').apply(lambda x:x[1])
+        # convert column from string to numeric
+        categories[column] = categories[column].astype(int)
+        
+    # drop the original categories column from `df`
+    df = df.drop(columns=['categories'])
+    # concatenate the original dataframe with the new `categories` dataframe
+    df = pd.concat([df,categories],axis=1)
+    # drop duplicates
+    df = df.drop_duplicates()
+    
+    return df
+
 
 
 def save_data(df, database_filename):
-    pass  
+    '''
+    Save data into database
+    
+    :param df: input data
+    :param database_filename: database file name
+    '''
+    # Create database engine
+    engine = create_engine(database_filename)
+    # Save df to database
+    df.to_sql('InsertTableName', engine, index=False)
 
 
 def main():
