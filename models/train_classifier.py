@@ -1,24 +1,130 @@
 import sys
-
+import nltk
+nltk.download('punkt')
+nltk.download('wordnet')
+nltk.download('stopwords')
+nltk.download('averaged_perceptron_tagger')
+import numpy as np
+import pandas as pd
+from sqlalchemy import create_engine
+from nltk import word_tokenize
+from nltk.stem import WordNetLemmatizer
+from nltk.corpus import stopwords
+from sklearn.pipeline import Pipeline, FeatureUnion
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.multioutput import MultiOutputClassifier
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.metrics import classification_report
+from sklearn.base import BaseEstimator, TransformerMixin
+from joblib import dump, load
 
 def load_data(database_filepath):
-    pass
+    '''
+    Load data from database file path, output feature set, target and target categories
+    
+    :param database_filepath: database file path
+    '''
+    # load data from database
+    engine = create_engine('sqlite:///InsertDatabaseName.db')
+    df = pd.read_sql_table('InsertTableName',engine)
+    X = df['message']
+    Y = df.drop(columns=['id','message','original','genre'])
+    
+    return X, Y, Y.columns
 
 
 def tokenize(text):
-    pass
+    '''
+    Tokenize, lemmatize, normalize, strip, remove stop words from the text
+    
+    :param text: input text
+    '''
+    # Initialization
+    tokens = word_tokenize(text)
+    lemmatizer = WordNetLemmatizer()
+    stopWords = set(stopwords.words('english'))
+    
+    # Get clean tokens after lemmatization, normalization, stripping and stop words removal
+    clean_tokens = []
+    for tok in tokens:
+        clean_tok = lemmatizer.lemmatize(tok).lower().strip()
+        if tok not in stopWords:
+            clean_tokens.append(clean_tok)
+
+    return clean_tokens
+
+
+class TextLengthExtractor(BaseEstimator, TransformerMixin):
+    '''
+    Count the text length of each cell in the X
+    
+    '''
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X_length = pd.Series(X).str.len()
+        return pd.DataFrame(X_length)
 
 
 def build_model():
-    pass
+    '''
+    Build a pipeline with TFIDF DTM, length of text column, and a random forest classifier. Grid search on the `use_idf` from tf_idf and `n_estimators` from random forest classifier to find the best model
+    
+    :param text: input text
+    '''
+    # Build out the pipeline
+    pipeline = Pipeline([
+        ('features', FeatureUnion([
 
+            ('text_pipeline', Pipeline([
+                ('vect', CountVectorizer(tokenizer=tokenize)),
+                ('tfidf', TfidfTransformer())
+            ])),
+
+            ('text_len', TextLengthExtractor())
+        ])),
+
+        ('clf', MultiOutputClassifier(RandomForestClassifier(n_jobs=-1)))
+    ])
+    # Set up the search grid
+    parameters = {
+        'features__text_pipeline__tfidf__use_idf': (True, False),
+        'clf__estimator__n_estimators': [50, 100, 200]
+    }
+    # Initialize GridSearch cross validation object
+    cv = GridSearchCV(pipeline, param_grid=parameters,n_jobs=-1)
+
+    return cv
 
 def evaluate_model(model, X_test, Y_test, category_names):
-    pass
+    '''
+    Evaluate the model performance of each category target column
+    
+    :param model: model object
+    :param X_test: test feature set
+    :param Y_test: test target set
+    :param category_names: target category names
+    '''
+    # Use model to predict
+    Y_pred = model.predict(X_test)
+    # Turn prediction into DataFrame
+    Y_pred = pd.DataFrame(Y_pred,columns=Y_test.columns)
+    # For each category column, print performance
+    for col in category_names:
+        print(f'Column Name:{col}\n')
+        print(classification_report(Y_test[col],Y_pred[col]))
 
 
 def save_model(model, model_filepath):
-    pass
+    '''
+    Save model to a pickle file
+    
+    :param model: model object
+    :param model_filepath: model output file path
+    '''
+    dump(model, model_filepath) 
 
 
 def main():
