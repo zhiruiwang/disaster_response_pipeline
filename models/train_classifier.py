@@ -17,7 +17,7 @@ from sklearn.multioutput import MultiOutputClassifier
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import classification_report
 from sklearn.base import BaseEstimator, TransformerMixin
-from joblib import dump, load
+from sklearn.externals import joblib
 
 def load_data(database_filepath):
     '''
@@ -130,7 +130,7 @@ def save_model(model, model_filepath):
     :param model: model object
     :param model_filepath: model output file path
     '''
-    dump(model, model_filepath) 
+    joblib.dump(model, model_filepath) 
 
 
 def main():
